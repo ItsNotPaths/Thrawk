@@ -1,2 +1,4 @@
 vendor/
 thrawk
+tests/verify_*
+!tests/verify_*.nim
