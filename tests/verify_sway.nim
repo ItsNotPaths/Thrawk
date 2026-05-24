@@ -5,7 +5,7 @@
 import std/[os, strutils, osproc, options]
 import ../src/theme, ../src/emit_sway, ../src/init_sway
 
-const sandbox = "/tmp/thrawk-verify"
+const sandbox = "/tmp/Thrawk-verify"
 
 proc main() =
   let repoRoot = currentSourcePath().parentDir.parentDir

@@ -1,7 +1,7 @@
 ## Active-theme dump. Writes ~/.config/unrawk/active.theme as a verbatim
 ## copy of the chosen palette file plus a header naming the source. Other
 ## rawk binaries read this single well-known path to pick up the current
-## theme without depending on thrawk being installed.
+## theme without depending on Thrawk being installed.
 
 import std/[os, strformat, times, strutils]
 import theme
@@ -25,7 +25,7 @@ proc writeActive*(p: Palette): bool =
   ## active-theme location with a header. Returns false on any IO failure.
   ## Falls back to a synthesized minimal palette dump if the source file
   ## cannot be read (e.g. for a built-in palette without a backing file).
-  let header = &"# active theme — written by thrawk on {now()}\n# source: {p.name} ({p.source})\n"
+  let header = &"# active theme — written by Thrawk on {now()}\n# source: {p.name} ({p.source})\n"
   var body: string
   if p.source.len > 0 and fileExists(p.source):
     try: body = readFile(p.source)

@@ -1,8 +1,8 @@
 version     = "0.1.0"
 author      = ""
-description = "thrawk"
+description = "Thrawk"
 license     = "MIT"
 srcDir      = "src"
-bin         = @["thrawk"]
+bin         = @["Thrawk"]
 
 requires "nim >= 2.0.0"

@@ -1,13 +1,13 @@
-## thrawk — themer for the unrawk void overlay.
+## Thrawk — themer for the unrawk void overlay.
 ##
 ## CLI:
-##   thrawk                       launch GUI drum picker
-##   thrawk --init-sway [<name>]  one-shot bootstrap of ~/.config/sway/config
-##   thrawk --emit-sway <name>    print the THRAWK marker block to stdout
-##   thrawk --emit-active <name>  write ~/.config/unrawk/active.theme
-##   thrawk --apply <name>        splice sway + write active + reload
-##   thrawk --list                list discovered themes by name
-##   thrawk --themes-dir <path>   override default search (for testing)
+##   Thrawk                       launch GUI drum picker
+##   Thrawk --init-sway [<name>]  one-shot bootstrap of ~/.config/sway/config
+##   Thrawk --emit-sway <name>    print the THRAWK marker block to stdout
+##   Thrawk --emit-active <name>  write ~/.config/unrawk/active.theme
+##   Thrawk --apply <name>        splice sway + write active + reload
+##   Thrawk --list                list discovered themes by name
+##   Thrawk --themes-dir <path>   override default search (for testing)
 ##
 ## Default theme for --init-sway is "pathsgruv" if present, else first
 ## discovered.
@@ -17,27 +17,27 @@ import rawk_luigi
 import theme, emit_sway, init_sway, emit_unrawk, refresh, themelist
 
 const usage = """
-thrawk — themer for the unrawk void overlay
+Thrawk — themer for the unrawk void overlay
 
 Usage:
-  thrawk                       launch GUI drum picker
-  thrawk --init-sway [<name>]  bootstrap ~/.config/sway/config (one-shot)
-  thrawk --emit-sway <name>    print THRAWK marker block for <name> to stdout
-  thrawk --emit-active <name>  write ~/.config/unrawk/active.theme
-  thrawk --apply <name>        splice sway + write active + swaymsg reload
-  thrawk --list                list discovered themes
-  thrawk --help                this message
+  Thrawk                       launch GUI drum picker
+  Thrawk --init-sway [<name>]  bootstrap ~/.config/sway/config (one-shot)
+  Thrawk --emit-sway <name>    print THRAWK marker block for <name> to stdout
+  Thrawk --emit-active <name>  write ~/.config/unrawk/active.theme
+  Thrawk --apply <name>        splice sway + write active + swaymsg reload
+  Thrawk --list                list discovered themes
+  Thrawk --help                this message
 
-Discovery: themes/ next to binary, then /etc/xdg/Xrawk/thrawk/themes/, then
-~/.config/thrawk/themes/. First match wins on name collision.
+Discovery: themes/ next to binary, then /etc/xdg/Xrawk/Thrawk/themes/, then
+~/.config/Thrawk/themes/. First match wins on name collision.
 """
 
 proc themeSearchDirs(override: string = ""): seq[string] =
   if override.len > 0: return @[override]
   @[
     getAppDir() / "themes",
-    "/etc/xdg/Xrawk/thrawk/themes",
-    getHomeDir() / ".config" / "thrawk" / "themes",
+    "/etc/xdg/Xrawk/Thrawk/themes",
+    getHomeDir() / ".config" / "Thrawk" / "themes",
   ]
 
 proc swayConfigPath(): string =
@@ -108,7 +108,7 @@ var
 proc applyForGui(p: Palette) =
   let r = applyAll(p)
   if not r.ok:
-    stderr.writeLine "thrawk: " & r.msg
+    stderr.writeLine "Thrawk: " & r.msg
 
 proc rescanForGui() =
   let currentName =
@@ -140,10 +140,10 @@ proc runGui(themes: seq[Palette], searchDirs: seq[string]): int =
   gThemes[] = themes
 
   initialise()
-  # 480×230 matches the `for_window [title="^thrawk$"]` rule in the marker
+  # 480×230 matches the `for_window [title="^Thrawk$"]` rule in the marker
   # block (and the swaymsg in selfFloat) so sway doesn't tile + resize the
   # window after it appears.
-  let win = windowCreate(nil, 0, "thrawk", 480, 230)
+  let win = windowCreate(nil, 0, "Thrawk", 480, 230)
   let panel = panelCreate(addr win.e, PANEL_GRAY or ELEMENT_V_FILL or ELEMENT_H_FILL)
   gDrum = drumCreate(addr panel.e, gThemes, applyForGui, rescanForGui)
   elementFocus(addr gDrum.e)

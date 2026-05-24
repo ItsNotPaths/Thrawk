@@ -1,5 +1,5 @@
 ## --init-sway bootstrap. Rewrites a virgin sway config so that color-bearing
-## directives reference thrawk's `$tw_*` variables, and inserts the THRAWK
+## directives reference Thrawk's `$tw_*` variables, and inserts the THRAWK
 ## marker block above the first reference site. Idempotent: refuses to run
 ## if markers are already present. Always writes a timestamped backup first.
 
@@ -153,7 +153,7 @@ proc initSwayConfig*(configPath: string, p: Palette): InitResult =
 
   # Backup first. Bail before any writes if the backup fails.
   let stamp = now().format("yyyyMMdd-HHmmss")
-  let backup = configPath & ".thrawk-bak." & stamp
+  let backup = configPath & ".Thrawk-bak." & stamp
   try: writeFile(backup, body)
   except IOError:
     return InitResult(ok: false, message: "could not write backup: " & backup)

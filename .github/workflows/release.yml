@@ -18,7 +18,7 @@ on:
         default: false
 
 env:
-  PROJECT_NAME: thrawk
+  PROJECT_NAME: Thrawk
 
 jobs:
   build-linux:

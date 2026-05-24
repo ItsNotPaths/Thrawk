@@ -1,4 +1,4 @@
 vendor/
-thrawk
+Thrawk
 tests/verify_*
 !tests/verify_*.nim

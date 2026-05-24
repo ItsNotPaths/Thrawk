@@ -1,7 +1,7 @@
 ## Sway emitter. Produces and splices the THRAWK marker block, which holds
 ## sway `set $tw_*` variable definitions plus the wallpaper line. The user's
 ## main sway config references these variables in `client.*` and
-## `bar.colors`; thrawk rewrites variable values only, never structural
+## `bar.colors`; Thrawk rewrites variable values only, never structural
 ## directives. The `set $menu` line is unmanaged — the user owns the
 ## launcher invocation.
 
@@ -9,7 +9,7 @@ import std/[strutils, os, options]
 import theme
 
 const
-  beginMarker* = "# THRAWK:BEGIN  (managed by thrawk — do not edit; regenerated on theme change)"
+  beginMarker* = "# THRAWK:BEGIN  (managed by Thrawk — do not edit; regenerated on theme change)"
   endMarker*   = "# THRAWK:END"
 
 proc hex(c: uint32): string = "#" & toHex(BiggestInt(c), 6).toLowerAscii
@@ -37,10 +37,10 @@ proc genMarkerBlock*(p: Palette): string =
     "set $tw_warn            " & hex(effectiveWarn(p)),
     wallpaperLine(p),
     "output * bg $tw_wallpaper",
-    # Force thrawk's own window to float, centered, small. wayluigi doesn't
+    # Force Thrawk's own window to float, centered, small. wayluigi doesn't
     # set app_id, so we match by xdg_toplevel title (set unconditionally by
-    # luigi). Re-applied on each reload — harmless if no thrawk is running.
-    "for_window [title=\"^thrawk$\"] floating enable, resize set width 480 height 230, move position center",
+    # luigi). Re-applied on each reload — harmless if no Thrawk is running.
+    "for_window [title=\"^Thrawk$\"] floating enable, resize set width 480 height 230, move position center",
     endMarker,
     "",
   ]
@@ -90,7 +90,7 @@ proc spliceBlock*(configPath: string, p: Palette): SpliceError =
 proc errorMessage*(e: SpliceError): string =
   case e
   of spOk:             ""
-  of spMissingMarkers: "no THRAWK markers in sway config — run `thrawk --init-sway` first"
+  of spMissingMarkers: "no THRAWK markers in sway config — run `Thrawk --init-sway` first"
   of spOnlyOneMarker:  "sway config has only one THRAWK marker (corrupted state — refusing to splice)"
   of spOutOfOrder:     "sway config THRAWK markers are out of order"
   of spIoError:        "could not read/write sway config"

@@ -1,5 +1,5 @@
-## Palette parser for thrawk. Shares the `key: #RRGGBB` format used by
-## Prawk/Edrawk/Exrawk so a single .theme file restyles all of them — thrawk
+## Palette parser for Thrawk. Shares the `key: #RRGGBB` format used by
+## Prawk/Edrawk/Exrawk so a single .theme file restyles all of them — Thrawk
 ## treats those apps' fields as primary and adds two sway-specific extras
 ## (`accent_dim`, `warn`). Unknown keys are ignored on parse so older theme
 ## files stay forward-compatible.
