@@ -23,10 +23,17 @@ env:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
-    # TODO: if you need an older glibc floor, switch to a container like:
-    #   container: ubuntu:20.04
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libfreetype-dev \
+            zip
 
       - name: Cache vendor/
         uses: actions/cache@v4
@@ -39,23 +46,22 @@ jobs:
           chmod +x ./download-deps.sh
           ./download-deps.sh
 
-      - name: Install toolchain
+      - name: Install Nim toolchain
         run: |
           curl -fsSL https://nim-lang.org/download/nim-2.2.4-linux_x64.tar.xz | tar xJ -C /opt
           echo /opt/nim-2.2.4/bin >> $GITHUB_PATH
 
       - name: Build
         run: |
-          # TODO: tune for your project (extra -d flags, SDL2 includes, etc.)
-          nim c -d:release --opt:speed -o:"$PROJECT_NAME" "src/$PROJECT_NAME.nim"
+          nim c -d:release -d:wayland --opt:speed \
+              -o:"$PROJECT_NAME" "src/$PROJECT_NAME.nim"
           strip --strip-all "$PROJECT_NAME"
 
       - name: Stage artifacts
         run: |
           mkdir -p dist
-          # TODO: copy the files you want in the linux release into dist/
-          [ -f "$PROJECT_NAME" ] && cp "$PROJECT_NAME" dist/ || true
-          [ -d dist-stage ] && cp -r dist-stage/. dist/ || true
+          cp "$PROJECT_NAME" dist/
+          cp -r themes dist/
           [ -f README.md ] && cp README.md dist/ || true
           [ -f LICENSE ] && cp LICENSE dist/ || true
 
@@ -64,54 +70,8 @@ jobs:
           name: linux-zip
           path: dist
 
-  build-windows:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Cache vendor/
-        uses: actions/cache@v4
-        with:
-          path: vendor
-          key: vendor-windows-${{ hashFiles('download-deps.sh') }}
-
-      - name: Download deps
-        run: |
-          chmod +x ./download-deps.sh
-          ./download-deps.sh
-
-      - name: Install toolchain
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y mingw-w64
-          curl -fsSL https://nim-lang.org/download/nim-2.2.4-linux_x64.tar.xz | tar xJ -C /opt
-          echo /opt/nim-2.2.4/bin >> $GITHUB_PATH
-
-      - name: Build
-        run: |
-          # TODO: nim cross-compile to Windows needs per-project tuning
-          # (vendor paths, extra --passL flags for SDL2, etc.)
-          nim c -d:release --cpu:amd64 --os:windows \
-              --gcc.exe:x86_64-w64-mingw32-gcc \
-              --gcc.linkerexe:x86_64-w64-mingw32-gcc \
-              -o:"$PROJECT_NAME.exe" "src/$PROJECT_NAME.nim"
-
-      - name: Stage artifacts
-        run: |
-          mkdir -p dist
-          # TODO: copy the files you want in the windows release into dist/
-          [ -f "${PROJECT_NAME}.exe" ] && cp "${PROJECT_NAME}.exe" dist/ || true
-          [ -d dist-stage ] && cp -r dist-stage/. dist/ || true
-          [ -f README.md ] && cp README.md dist/ || true
-          [ -f LICENSE ] && cp LICENSE dist/ || true
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-zip
-          path: dist
-
   release:
-    needs: [build-linux, build-windows]
+    needs: [build-linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -121,15 +81,9 @@ jobs:
           name: linux-zip
           path: linux-zip
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: windows-zip
-          path: windows-zip
-
       - name: Package
         run: |
           (cd linux-zip && zip -r "../${PROJECT_NAME}-linux.zip" .)
-          (cd windows-zip && zip -r "../${PROJECT_NAME}-windows.zip" .)
 
       - name: Create release
         env:
@@ -141,7 +95,7 @@ jobs:
           fi
           gh release create "${{ inputs.version }}" \
               "${PROJECT_NAME}-linux.zip" \
-              "${PROJECT_NAME}-windows.zip" \
+              --repo "${{ github.repository }}" \
               --title "${{ inputs.version }}" \
               --notes "${{ inputs.notes }}" \
               $PRERELEASE_FLAG
