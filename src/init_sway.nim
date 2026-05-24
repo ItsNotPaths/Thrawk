@@ -11,22 +11,6 @@ type InitResult* = object
   message*: string
   backupPath*: string
 
-# Bemenu flag → $tw_* variable mapping. Order doesn't matter; we look for any
-# `--flag "<hex>"` or `--flag #hex` occurrence and replace the value in-place.
-const bemenuMap = [
-  ("--nb",  "$tw_bg"),
-  ("--nf",  "$tw_fg"),
-  ("--tb",  "$tw_accent"),
-  ("--tf",  "$tw_border_dark"),
-  ("--fb",  "$tw_bg"),
-  ("--ff",  "$tw_fg"),
-  ("--hb",  "$tw_separator"),
-  ("--hf",  "$tw_fg"),
-  ("--sb",  "$tw_accent"),
-  ("--sf",  "$tw_border_dark"),
-  ("--bdr", "$tw_accent"),
-]
-
 # client.<class> position → $tw_* variable mapping. List length matches the
 # number of color slots that class accepts (5 for most, 1 for background).
 # Runtime `let` rather than `const` because Tables can't be const in Nim.
@@ -54,31 +38,6 @@ let barTriple = {
   "binding_mode":       @["$tw_warn",       "$tw_warn",       "$tw_border_dark"],
 }.toTable
 
-proc replaceBemenuArg(line: string, flag, value: string): string =
-  ## Replaces the value following `flag` (e.g. `--nb`) with `value`. The
-  ## current value may be quoted (`"#..."`) or bare (`#...`); we replace the
-  ## whole token. Returns the original line if `flag` isn't found.
-  let idx = line.find(flag)
-  if idx < 0: return line
-  # Skip flag + any whitespace.
-  var p = idx + flag.len
-  while p < line.len and line[p] in {' ', '\t'}: inc p
-  if p >= line.len: return line
-  # Token may be `"<value>"` or bare. Quoted case eats matching quote.
-  if line[p] == '"':
-    let endQuote = line.find('"', p + 1)
-    if endQuote < 0: return line
-    return line[0 ..< p] & "\"" & value & "\"" & line[endQuote + 1 .. ^1]
-  else:
-    var q = p
-    while q < line.len and line[q] notin {' ', '\t', '\r', '\n'}: inc q
-    return line[0 ..< p] & value & line[q .. ^1]
-
-proc rewriteMenu(line: string): string =
-  result = line
-  for (flag, value) in bemenuMap:
-    result = replaceBemenuArg(result, flag, value)
-
 proc rewriteClient(line: string): string =
   ## Replaces values on a `client.<class>` line by position.
   let stripped = line.strip()
@@ -105,7 +64,7 @@ type BarState = enum
   bsOutside, bsInBar, bsInColors
 
 proc rewriteLines(content: string): string =
-  ## Walks the config line-by-line, applying bemenu/client/bar/output rewrites
+  ## Walks the config line-by-line, applying client/bar/output rewrites
   ## and stripping the existing `output * bg ...` directive (marker block
   ## emits a managed replacement).
   var lines: seq[string]
@@ -149,11 +108,6 @@ proc rewriteLines(content: string): string =
             newParts.add(repl)
             lines.add(indent & newParts.join(" "))
             continue
-
-    # bemenu `set $menu ...` line.
-    if stripped.startsWith("set $menu") and "bemenu-run" in stripped:
-      lines.add(rewriteMenu(raw))
-      continue
 
     # client.<class> lines.
     if stripped.startsWith("client."):

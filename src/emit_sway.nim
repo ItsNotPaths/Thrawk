@@ -1,8 +1,9 @@
 ## Sway emitter. Produces and splices the THRAWK marker block, which holds
 ## sway `set $tw_*` variable definitions plus the wallpaper line. The user's
-## main sway config references these variables in `client.*`, `bar.colors`,
-## and the bemenu `$menu` line; thrawk rewrites variable values only, never
-## structural directives.
+## main sway config references these variables in `client.*` and
+## `bar.colors`; thrawk rewrites variable values only, never structural
+## directives. The `set $menu` line is unmanaged — the user owns the
+## launcher invocation.
 
 import std/[strutils, os, options]
 import theme

@@ -12,7 +12,7 @@
 ## Default theme for --init-sway is "pathsgruv" if present, else first
 ## discovered.
 
-import std/[os, strutils, parseopt, options, osproc]
+import std/[os, strutils, parseopt, options]
 import rawk_luigi
 import theme, emit_sway, init_sway, emit_unrawk, refresh, themelist
 
