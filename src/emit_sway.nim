@@ -1,9 +1,9 @@
 ## Sway emitter. Produces and splices the THRAWK marker block, which holds
-## sway `set $tw_*` variable definitions plus the wallpaper line. The user's
-## main sway config references these variables in `client.*` and
-## `bar.colors`; Thrawk rewrites variable values only, never structural
-## directives. The `set $menu` line is unmanaged — the user owns the
-## launcher invocation.
+## sway `set $tw_*` variable definitions, the wallpaper line, the launcher
+## (`set $menu` pointing at Drawk with `--theme global`), and float rules
+## for Thrawk's and Drawk's own windows. The user's main sway config
+## references these variables in `client.*` and `bar.colors`; Thrawk
+## rewrites variable values only, never structural directives.
 
 import std/[strutils, os, options]
 import theme
@@ -37,10 +37,15 @@ proc genMarkerBlock*(p: Palette): string =
     "set $tw_warn            " & hex(effectiveWarn(p)),
     wallpaperLine(p),
     "output * bg $tw_wallpaper",
-    # Force Thrawk's own window to float, centered, small. wayluigi doesn't
-    # set app_id, so we match by xdg_toplevel title (set unconditionally by
-    # luigi). Re-applied on each reload — harmless if no Thrawk is running.
+    # Drawk is dmenu-style (reads stdin, writes selection to stdout), so we
+    # wrap it in the canonical sway launcher pipeline. `--theme global` makes
+    # Drawk follow whatever palette Thrawk last wrote to active.theme.
+    "set $menu dmenu_path | /opt/Drawk/Drawk --theme global | xargs swaymsg exec --",
+    # Float Thrawk and Drawk centered. wayluigi doesn't set app_id, so we
+    # match on xdg_toplevel title (set unconditionally by luigi). Re-applied
+    # on each reload — harmless if neither is running.
     "for_window [title=\"^Thrawk$\"] floating enable, resize set width 480 height 230, move position center",
+    "for_window [title=\"^Drawk$\"]  floating enable, resize set width 480 height 304, move position center",
     endMarker,
     "",
   ]

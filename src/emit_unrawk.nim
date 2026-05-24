@@ -9,6 +9,25 @@ import theme
 proc activeThemePath*(): string =
   getHomeDir() / ".config" / "unrawk" / "active.theme"
 
+proc readActiveThemeName*(): string =
+  ## Parses the `# source: <name> (<path>)` header line written by
+  ## writeActive. Returns "" if the file is missing, unreadable, or has no
+  ## recognizable source line.
+  let path = activeThemePath()
+  if not fileExists(path): return ""
+  var body: string
+  try: body = readFile(path)
+  except IOError: return ""
+  for line in body.splitLines():
+    let s = line.strip()
+    if s.startsWith("# source:"):
+      let rest = s["# source:".len .. ^1].strip()
+      let paren = rest.find('(')
+      return (if paren < 0: rest else: rest[0 ..< paren]).strip()
+    if not s.startsWith("#") and s.len > 0:
+      break  # past the header, no source line
+  ""
+
 proc atomicWrite(path, content: string): bool =
   let tmp = path & ".tmp"
   try:

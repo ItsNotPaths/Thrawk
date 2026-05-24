@@ -148,10 +148,17 @@ proc runGui(themes: seq[Palette], searchDirs: seq[string]): int =
   gDrum = drumCreate(addr panel.e, gThemes, applyForGui, rescanForGui)
   elementFocus(addr gDrum.e)
 
-  selfFloat()
+  # Start the drum on whatever theme is currently active so we don't
+  # silently re-apply a different one on launch. If active.theme is missing
+  # or names something not in the discovered set, fall back to index 0.
+  let activeName = readActiveThemeName()
+  if activeName.len > 0:
+    for i, t in gThemes[]:
+      if t.name == activeName:
+        gDrum.centerIdx = i
+        break
 
-  if gThemes[].len > 0:
-    applyForGui(gThemes[][gDrum.centerIdx])
+  selfFloat()
 
   return int(messageLoop())
 

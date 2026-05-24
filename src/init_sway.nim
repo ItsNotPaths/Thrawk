@@ -76,6 +76,14 @@ proc rewriteLines(content: string): string =
     if stripped.startsWith("output") and " bg " in stripped:
       continue
 
+    # Drop pre-existing $menu definitions and Drawk float rule — both are
+    # now emitted by the marker block, so leaving user copies would conflict
+    # (sway's last-set-wins semantics make duplicates fragile).
+    if stripped.startsWith("set") and " $menu " in stripped:
+      continue
+    if stripped.startsWith("for_window") and "[title=\"^Drawk$\"]" in stripped:
+      continue
+
     # State machine for `bar { ... colors { ... } }`. Naive but sufficient
     # for typical configs: we look for `bar {`, then `colors {`, then `}`.
     case state
