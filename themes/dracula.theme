@@ -1,0 +1,20 @@
+# Dracula — purple-on-dark classic.
+bg:            #282a36
+fg:            #f8f8f2
+accent:        #bd93f9
+muted:         #6272a4
+urgent:        #ff5555
+border_light:  #44475a
+border_dark:   #1e1f29
+separator:     #44475a
+code_keyword:  #ff79c6
+code_string:   #f1fa8c
+code_comment:  #6272a4
+code_number:   #bd93f9
+code_operator: #ff79c6
+code_type:        #8be9fd
+code_return_type: #50fa7b
+cl_inject:        #ff5555
+
+accent_dim:    #6272a4
+warn:          #ffb86c

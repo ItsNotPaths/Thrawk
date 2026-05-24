@@ -1,0 +1,20 @@
+# Solarized Dark — Ethan Schoonover's calibrated low-contrast set.
+bg:            #002b36
+fg:            #93a1a1
+accent:        #268bd2
+muted:         #586e75
+urgent:        #dc322f
+border_light:  #073642
+border_dark:   #001f27
+separator:     #073642
+code_keyword:  #859900
+code_string:   #2aa198
+code_comment:  #586e75
+code_number:   #d33682
+code_operator: #cb4b16
+code_type:        #b58900
+code_return_type: #6c71c4
+cl_inject:        #dc322f
+
+accent_dim:    #6c71c4
+warn:          #b58900

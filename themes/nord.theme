@@ -1,0 +1,20 @@
+# Nord — arctic, north-bluish.
+bg:            #2e3440
+fg:            #d8dee9
+accent:        #88c0d0
+muted:         #4c566a
+urgent:        #bf616a
+border_light:  #4c566a
+border_dark:   #232831
+separator:     #3b4252
+code_keyword:  #81a1c1
+code_string:   #a3be8c
+code_comment:  #616e88
+code_number:   #b48ead
+code_operator: #d08770
+code_type:        #8fbcbb
+code_return_type: #88c0d0
+cl_inject:        #ff5370
+
+accent_dim:    #5e81ac
+warn:          #ebcb8b

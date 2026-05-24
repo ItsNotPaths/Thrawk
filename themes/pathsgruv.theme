@@ -1,0 +1,24 @@
+# pathsgruv — Paths' daily-driver palette.
+# Gruvbox Material Dark base + purple accent. Sourced from
+# ~/.config/themes/pathsgruv.txt and the live sway config.
+bg:            #292828
+fg:            #d4be98
+accent:        #6f3f9e
+muted:         #928374
+urgent:        #ea6962
+border_light:  #504945
+border_dark:   #32302f
+separator:     #46413e
+code_keyword:  #d3869b
+code_string:   #d8a657
+code_comment:  #928374
+code_number:   #d3869b
+code_operator: #e78a4e
+code_type:        #a9b665
+code_return_type: #89b482
+cl_inject:        #ff0000
+
+# Sway extras
+accent_dim:    #7c6b9e
+warn:          #d8a657
+wallpaper:     /home/paths/Pictures/silv-wallpaper.png
