@@ -5,36 +5,31 @@
 ## references these variables in `client.*` and `bar.colors`; Thrawk
 ## rewrites variable values only, never structural directives.
 
-import std/[strutils, os, options]
-import theme
-
-const
-  beginMarker* = "# THRAWK:BEGIN  (managed by Thrawk — do not edit; regenerated on theme change)"
-  endMarker*   = "# THRAWK:END"
-
-proc hex(c: uint32): string = "#" & toHex(BiggestInt(c), 6).toLowerAscii
+import std/[options, strutils]
+import theme, splice
+export splice.SpliceError, splice.beginMarker, splice.endMarker
 
 proc wallpaperLine(p: Palette): string =
   if p.wallpaper.isSome:
     "set $tw_wallpaper       " & p.wallpaper.get() & " fill"
   else:
-    "set $tw_wallpaper       " & hex(p.bg) & " solid_color"
+    "set $tw_wallpaper       " & hex6(p.bg) & " solid_color"
 
 proc genMarkerBlock*(p: Palette): string =
   ## Returns the contents (including marker lines) for the THRAWK region.
   ## Trailing newline included so callers can splice with simple string ops.
   let lines = @[
     beginMarker,
-    "set $tw_bg              " & hex(p.bg),
-    "set $tw_fg              " & hex(p.fg),
-    "set $tw_accent          " & hex(p.accent),
-    "set $tw_accent_dim      " & hex(effectiveAccentDim(p)),
-    "set $tw_muted           " & hex(p.muted),
-    "set $tw_urgent          " & hex(p.urgent),
-    "set $tw_border_light    " & hex(p.borderLight),
-    "set $tw_border_dark     " & hex(p.borderDark),
-    "set $tw_separator       " & hex(p.separator),
-    "set $tw_warn            " & hex(effectiveWarn(p)),
+    "set $tw_bg              " & hex6(p.bg),
+    "set $tw_fg              " & hex6(p.fg),
+    "set $tw_accent          " & hex6(p.accent),
+    "set $tw_accent_dim      " & hex6(effectiveAccentDim(p)),
+    "set $tw_muted           " & hex6(p.muted),
+    "set $tw_urgent          " & hex6(p.urgent),
+    "set $tw_border_light    " & hex6(p.borderLight),
+    "set $tw_border_dark     " & hex6(p.borderDark),
+    "set $tw_separator       " & hex6(p.separator),
+    "set $tw_warn            " & hex6(effectiveWarn(p)),
     wallpaperLine(p),
     "output * bg $tw_wallpaper",
     # Drawk is dmenu-style (reads stdin, writes selection to stdout), so we
@@ -51,51 +46,9 @@ proc genMarkerBlock*(p: Palette): string =
   ]
   lines.join("\n")
 
-type SpliceError* = enum
-  spOk, spMissingMarkers, spOnlyOneMarker, spOutOfOrder, spIoError
-
-proc atomicWrite(path, content: string): bool =
-  ## Write to path.tmp then rename. Returns false on any IO failure.
-  let tmp = path & ".tmp"
-  try:
-    writeFile(tmp, content)
-    moveFile(tmp, path)
-    return true
-  except OSError, IOError:
-    try: removeFile(tmp) except: discard
-    return false
-
-proc findRegion(content: string): tuple[ok: SpliceError, b, e: int] =
-  ## Returns (ok, beginLineStart, endLineStart) — byte offsets of the
-  ## beginning of the BEGIN line and the beginning of the END line.
-  let bi = content.find("# THRAWK:BEGIN")
-  let ei = content.find("# THRAWK:END")
-  if bi < 0 and ei < 0: return (spMissingMarkers, -1, -1)
-  if bi < 0 or ei < 0:  return (spOnlyOneMarker, -1, -1)
-  if ei < bi:           return (spOutOfOrder, -1, -1)
-  (spOk, bi, ei)
-
 proc spliceBlock*(configPath: string, p: Palette): SpliceError =
-  ## Atomically replaces the existing THRAWK marker block with one for `p`.
-  ## Returns spOk on success, or a specific error code on failure.
-  if not fileExists(configPath): return spIoError
-  var body: string
-  try: body = readFile(configPath)
-  except IOError: return spIoError
-  let (ok, b, e) = findRegion(body)
-  if ok != spOk: return ok
-  # Extend `e` to end of the END marker line (one past final '\n').
-  var eEnd = e
-  while eEnd < body.len and body[eEnd] != '\n': inc eEnd
-  if eEnd < body.len: inc eEnd  # consume the newline
-  let newBody = body[0 ..< b] & genMarkerBlock(p) & body[eEnd .. ^1]
-  if not atomicWrite(configPath, newBody): return spIoError
-  spOk
+  spliceMarkerBlock(configPath, genMarkerBlock(p))
 
 proc errorMessage*(e: SpliceError): string =
-  case e
-  of spOk:             ""
-  of spMissingMarkers: "no THRAWK markers in sway config — run `Thrawk --init-sway` first"
-  of spOnlyOneMarker:  "sway config has only one THRAWK marker (corrupted state — refusing to splice)"
-  of spOutOfOrder:     "sway config THRAWK markers are out of order"
-  of spIoError:        "could not read/write sway config"
+  ## Back-compat sway-flavored wrapper for older call sites.
+  splice.errorMessage(e, "sway")

@@ -1,32 +1,46 @@
 ## Thrawk — themer for the unrawk void overlay.
 ##
 ## CLI:
-##   Thrawk                       launch GUI drum picker
-##   Thrawk --init-sway [<name>]  one-shot bootstrap of ~/.config/sway/config
-##   Thrawk --emit-sway <name>    print the THRAWK marker block to stdout
-##   Thrawk --emit-active <name>  write ~/.config/unrawk/active.theme
-##   Thrawk --apply <name>        splice sway + write active + reload
-##   Thrawk --list                list discovered themes by name
-##   Thrawk --themes-dir <path>   override default search (for testing)
+##   Thrawk                              launch GUI drum picker
+##   Thrawk --init-sway       [<name>]   one-shot bootstrap of sway config
+##   Thrawk --init-alacritty  [<name>]   one-shot bootstrap of alacritty.toml
+##   Thrawk --init-helix      [<name>]   one-shot bootstrap of helix config
+##   Thrawk --init-qute       [<name>]   one-shot bootstrap of qutebrowser config.py
+##   Thrawk --init-all        [<name>]   bootstrap every supported target
+##   Thrawk --emit-sway       <name>     print sway marker block
+##   Thrawk --emit-alacritty  <name>     print alacritty marker block
+##   Thrawk --emit-helix      <name>     print helix theme file
+##   Thrawk --emit-qute       <name>     print qutebrowser marker block
+##   Thrawk --emit-active     <name>     write ~/.config/unrawk/active.theme
+##   Thrawk --apply           <name>     re-splice every target + reload daemons
+##   Thrawk --list                       list discovered themes by name
+##   Thrawk --themes-dir <path>          override default search (for testing)
 ##
-## Default theme for --init-sway is "pathsgruv" if present, else first
-## discovered.
+## Default theme for --init-* is "pathsgruv" if present, else first discovered.
 
 import std/[os, strutils, parseopt, options]
 import rawk_luigi
-import theme, emit_sway, init_sway, emit_unrawk, refresh, themelist
+import theme, emit_sway, init_sway, emit_unrawk, refresh, themelist, splice
+import emit_alacritty, emit_helix, emit_qute
 
 const usage = """
 Thrawk — themer for the unrawk void overlay
 
 Usage:
-  Thrawk                       launch GUI drum picker
-  Thrawk --init-sway [<name>]  bootstrap ~/.config/sway/config (one-shot)
-  Thrawk --emit-sway <name>    print THRAWK marker block for <name> to stdout
-  Thrawk --emit-active <name>  write ~/.config/unrawk/active.theme
-  Thrawk --apply <name>        splice sway + write active + swaymsg reload
-  Thrawk --list                list discovered themes
-  Thrawk --help                this message
+  Thrawk                              launch GUI drum picker
+  Thrawk --init-sway       [<name>]   bootstrap ~/.config/sway/config
+  Thrawk --init-alacritty  [<name>]   bootstrap ~/.config/alacritty/alacritty.toml
+  Thrawk --init-helix      [<name>]   bootstrap ~/.config/helix/config.toml
+  Thrawk --init-qute       [<name>]   bootstrap ~/.config/qutebrowser/config.py
+  Thrawk --init-all        [<name>]   bootstrap every supported target
+  Thrawk --emit-sway       <name>     print sway marker block
+  Thrawk --emit-alacritty  <name>     print alacritty marker block
+  Thrawk --emit-helix      <name>     print helix theme file content
+  Thrawk --emit-qute       <name>     print qutebrowser marker block
+  Thrawk --emit-active     <name>     write ~/.config/unrawk/active.theme
+  Thrawk --apply           <name>     splice all configs + reload running daemons
+  Thrawk --list                       list discovered themes
+  Thrawk --help                       this message
 
 Discovery: themes/ next to binary, then /etc/xdg/Xrawk/Thrawk/themes/, then
 ~/.config/Thrawk/themes/. First match wins on name collision.
@@ -54,16 +68,38 @@ proc preferred(themes: seq[Palette], name: string): Option[Palette] =
   if themes.len > 0: return some(themes[0])
   none(Palette)
 
+# ── apply ────────────────────────────────────────────────────────────────
+
+proc softSplice(label: string, r: SpliceError) =
+  ## Apply-time splice handler for non-sway targets: missing markers or a
+  ## missing config file are normal (user doesn't run that app) — log and
+  ## continue. Anything else gets a louder warning, still non-fatal.
+  if r == spOk or r == spMissingMarkers or r == spNoConfig:
+    return
+  stderr.writeLine "Thrawk: " & splice.errorMessage(r, label)
+
 proc applyAll(p: Palette): tuple[ok: bool, msg: string] =
+  # Sway is the critical target: client.* lines reference $tw_* variables
+  # so a missing splice would leave sway with undefined symbols. Hard fail.
   let sp = spliceBlock(swayConfigPath(), p)
   if sp != spOk:
-    return (false, errorMessage(sp))
+    return (false, splice.errorMessage(sp, "sway"))
+
+  # Optional targets: soft-fail so a user without (say) helix installed
+  # can still re-theme sway+alacritty+qute.
+  softSplice("alacritty",   spliceAlacritty(alacrittyConfigPath(), p))
+  softSplice("qutebrowser", spliceQute(quteConfigPath(), p))
+  softSplice("helix",       spliceHelix(helixConfigPath()))
+  # Helix theme file is whole-file Thrawk-owned — write unconditionally.
+  discard writeHelixTheme(p)
+
   if not writeActive(p):
     return (false, "could not write " & activeThemePath())
   discard reloadSway()
+  discard reloadQute()  # best-effort: no-op if qutebrowser isn't running
   (true, "applied " & p.name)
 
-# ─── CLI subcommands ─────────────────────────────────────────────────────
+# ── CLI subcommands ──────────────────────────────────────────────────────
 
 proc cmdList(themes: seq[Palette]) =
   if themes.len == 0:
@@ -75,6 +111,21 @@ proc cmdEmitSway(themes: seq[Palette], name: string) =
   if p.isNone: quit "no such theme: " & name, 1
   stdout.write(genMarkerBlock(p.get()))
 
+proc cmdEmitAlacritty(themes: seq[Palette], name: string) =
+  let p = findTheme(themes, name)
+  if p.isNone: quit "no such theme: " & name, 1
+  stdout.write(genAlacrittyBlock(p.get()))
+
+proc cmdEmitHelix(themes: seq[Palette], name: string) =
+  let p = findTheme(themes, name)
+  if p.isNone: quit "no such theme: " & name, 1
+  stdout.write(genHelixTheme(p.get()))
+
+proc cmdEmitQute(themes: seq[Palette], name: string) =
+  let p = findTheme(themes, name)
+  if p.isNone: quit "no such theme: " & name, 1
+  stdout.write(genQuteBlock(p.get()))
+
 proc cmdEmitActive(themes: seq[Palette], name: string) =
   let p = findTheme(themes, name)
   if p.isNone: quit "no such theme: " & name, 1
@@ -82,14 +133,70 @@ proc cmdEmitActive(themes: seq[Palette], name: string) =
     quit "could not write " & activeThemePath(), 1
   echo "wrote ", activeThemePath()
 
-proc cmdInitSway(themes: seq[Palette], name: string) =
+proc pickInitTheme(themes: seq[Palette], name: string): Palette =
   let p = preferred(themes, if name.len > 0: name else: "pathsgruv")
   if p.isNone: quit "no themes available", 1
-  let r = initSwayConfig(swayConfigPath(), p.get())
+  p.get()
+
+proc cmdInitSway(themes: seq[Palette], name: string) =
+  let p = pickInitTheme(themes, name)
+  let r = initSwayConfig(swayConfigPath(), p)
   if not r.ok: quit r.message, 1
-  echo "initialized sway config; backup at ", r.backupPath
-  discard writeActive(p.get())
+  echo "sway: initialized; backup at ", r.backupPath
+  discard writeActive(p)
   discard reloadSway()
+
+proc cmdInitAlacritty(themes: seq[Palette], name: string) =
+  let p = pickInitTheme(themes, name)
+  let r = initAlacritty(alacrittyConfigPath(), p)
+  if not r.ok: quit r.message, 1
+  if r.backupPath.len > 0:
+    echo "alacritty: initialized; backup at ", r.backupPath
+  else:
+    echo "alacritty: initialized (no prior config)"
+
+proc cmdInitHelix(themes: seq[Palette], name: string) =
+  let p = pickInitTheme(themes, name)
+  let r = initHelix(helixConfigPath(), p)
+  if not r.ok: quit r.message, 1
+  if r.backupPath.len > 0:
+    echo "helix: initialized; backup at ", r.backupPath
+  else:
+    echo "helix: initialized (no prior config)"
+  echo "helix: theme written to ", helixThemePath()
+
+proc cmdInitQute(themes: seq[Palette], name: string) =
+  let p = pickInitTheme(themes, name)
+  let r = initQute(quteConfigPath(), p)
+  if not r.ok: quit r.message, 1
+  if r.backupPath.len > 0:
+    echo "qutebrowser: initialized; backup at ", r.backupPath
+  else:
+    echo "qutebrowser: initialized (no prior config)"
+
+proc cmdInitAll(themes: seq[Palette], name: string) =
+  ## Best-effort sequential bootstrap. Each step prints its own status;
+  ## failures don't abort later steps so the user gets full visibility.
+  let p = pickInitTheme(themes, name)
+  block sway:
+    let r = initSwayConfig(swayConfigPath(), p)
+    if r.ok: echo "sway:        initialized; backup at ", r.backupPath
+    else:    stderr.writeLine "sway:        " & r.message
+  block ala:
+    let r = initAlacritty(alacrittyConfigPath(), p)
+    if r.ok: echo "alacritty:   initialized" & (if r.backupPath.len > 0: "; backup at " & r.backupPath else: "")
+    else:    stderr.writeLine "alacritty:   " & r.message
+  block hel:
+    let r = initHelix(helixConfigPath(), p)
+    if r.ok: echo "helix:       initialized" & (if r.backupPath.len > 0: "; backup at " & r.backupPath else: "")
+    else:    stderr.writeLine "helix:       " & r.message
+  block qute:
+    let r = initQute(quteConfigPath(), p)
+    if r.ok: echo "qutebrowser: initialized" & (if r.backupPath.len > 0: "; backup at " & r.backupPath else: "")
+    else:    stderr.writeLine "qutebrowser: " & r.message
+  discard writeActive(p)
+  discard reloadSway()
+  discard reloadQute()
 
 proc cmdApply(themes: seq[Palette], name: string) =
   let p = findTheme(themes, name)
@@ -167,7 +274,14 @@ proc runGui(themes: seq[Palette], searchDirs: seq[string]): int =
 proc main() =
   var
     initSway = false
+    initAla  = false
+    initHel  = false
+    initQut  = false
+    initAll  = false
     emitSway = ""
+    emitAla  = ""
+    emitHel  = ""
+    emitQut  = ""
     emitActive = ""
     apply = ""
     list = false
@@ -183,10 +297,13 @@ proc main() =
     of cmdArgument:
       if pending.len > 0:
         case pending
-        of "emit-sway":   emitSway = key
-        of "emit-active": emitActive = key
-        of "apply":       apply = key
-        of "themes-dir":  themesDirOverride = key
+        of "emit-sway":      emitSway   = key
+        of "emit-alacritty": emitAla    = key
+        of "emit-helix":     emitHel    = key
+        of "emit-qute":      emitQut    = key
+        of "emit-active":    emitActive = key
+        of "apply":          apply      = key
+        of "themes-dir":     themesDirOverride = key
         else: discard
         pending = ""
       else:
@@ -194,15 +311,23 @@ proc main() =
     of cmdLongOption, cmdShortOption:
       case key
       of "help", "h": echo usage; return
-      of "init-sway": initSway = true
+      of "init-sway":      initSway = true
+      of "init-alacritty": initAla  = true
+      of "init-helix":     initHel  = true
+      of "init-qute":      initQut  = true
+      of "init-all":       initAll  = true
       of "list": list = true
-      of "emit-sway", "emit-active", "apply", "themes-dir":
+      of "emit-sway", "emit-alacritty", "emit-helix", "emit-qute",
+         "emit-active", "apply", "themes-dir":
         if val.len > 0:
           case key
-          of "emit-sway":   emitSway = val
-          of "emit-active": emitActive = val
-          of "apply":       apply = val
-          of "themes-dir":  themesDirOverride = val
+          of "emit-sway":      emitSway   = val
+          of "emit-alacritty": emitAla    = val
+          of "emit-helix":     emitHel    = val
+          of "emit-qute":      emitQut    = val
+          of "emit-active":    emitActive = val
+          of "apply":          apply      = val
+          of "themes-dir":     themesDirOverride = val
           else: discard
         else:
           pending = key
@@ -214,15 +339,19 @@ proc main() =
 
   if list:
     cmdList(themes); return
-  if emitSway.len > 0:
-    cmdEmitSway(themes, emitSway); return
-  if emitActive.len > 0:
-    cmdEmitActive(themes, emitActive); return
-  if apply.len > 0:
-    cmdApply(themes, apply); return
-  if initSway:
-    let name = if positional.len > 0: positional[0] else: ""
-    cmdInitSway(themes, name); return
+  if emitSway.len > 0:    cmdEmitSway(themes, emitSway); return
+  if emitAla.len > 0:     cmdEmitAlacritty(themes, emitAla); return
+  if emitHel.len > 0:     cmdEmitHelix(themes, emitHel); return
+  if emitQut.len > 0:     cmdEmitQute(themes, emitQut); return
+  if emitActive.len > 0:  cmdEmitActive(themes, emitActive); return
+  if apply.len > 0:       cmdApply(themes, apply); return
+
+  let posName = if positional.len > 0: positional[0] else: ""
+  if initAll:  cmdInitAll(themes, posName); return
+  if initSway: cmdInitSway(themes, posName); return
+  if initAla:  cmdInitAlacritty(themes, posName); return
+  if initHel:  cmdInitHelix(themes, posName); return
+  if initQut:  cmdInitQute(themes, posName); return
 
   # No subcommand: GUI.
   if themes.len == 0:
